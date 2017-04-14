@@ -47,3 +47,5 @@ main = do
 
 -- TODO The IO Ref needs to be a set
 -- TODO The IO Ref needs to be read and displayed in the web page output
+-- TODO Functions in a another module to handle state
+-- TODO Maybe each node should respond with the nodes it knows about as well as its own ip
