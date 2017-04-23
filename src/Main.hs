@@ -1,12 +1,18 @@
 module Main where
 
 import qualified Network.Socket as Sock
+import Data.List (intercalate)
 import Network.Multicast
 import Control.Concurrent
 import Data.IORef
 import Control.Monad
 import Control.Concurrent.Chan
 import Happstack.Server (ServerPart, Response, nullConf, simpleHTTP, ok, nullDir, notFound)
+
+data Node = Node {
+    addr :: String
+    , neighbours :: [String]
+}
 
 recv :: Chan String -> IO ()
 recv ch = Sock.withSocketsDo $ do
@@ -17,20 +23,25 @@ recv ch = Sock.withSocketsDo $ do
         writeChan ch $ show addr
         loop in loop
 
-send = Sock.withSocketsDo $ do
+send :: IORef [String] -> IO ()
+send ref = Sock.withSocketsDo $ do
     (sock, addr) <- multicastSender "224.0.0.1" 9999
     let loop = do
+        nodes <- readIORef ref
         Sock.sendTo sock "ping" addr
         putStrLn "sent"
         threadDelay 10000000 --10s
         loop in loop
 
-homePage :: ServerPart String
-homePage = ok $ do "haspi is running"
+homePage :: (IO [String]) -> ServerPart String
+homePage f = ok $ do 
+    nodes <- f
+    --"known nodes: " ++ intercalate "," ["a"]
+    "foo"
 
 myServer :: IORef [String] -> IO ()
 myServer ref = simpleHTTP nullConf $ msum
-    [ homePage ]
+    [ homePage ((\r -> readIORef r) ref)]
 
 worker :: Chan String -> IORef [String] -> IO ()
 worker ch ref = forever (readChan ch >>= \value -> modifyIORef ref (value:))
@@ -43,7 +54,7 @@ main = do
     forkIO $ worker ch nodes
     forkIO $ myServer nodes
     forkIO $ recv ch
-    send
+    send nodes
 
 -- TODO The IO Ref needs to be a set
 -- TODO The IO Ref needs to be read and displayed in the web page output
