@@ -6,8 +6,9 @@ import Network.Multicast
 import Control.Concurrent
 import Data.IORef
 import Control.Monad
+import Control.Monad.Trans
 import Control.Concurrent.Chan
-import Happstack.Server (ServerPart, Response, nullConf, simpleHTTP, ok, nullDir, notFound)
+import Happstack.Server (ServerPart, Response, nullConf, simpleHTTP, ok, nullDir, notFound, toResponse)
 
 data Node = Node {
     addr :: String
@@ -33,15 +34,14 @@ send ref = Sock.withSocketsDo $ do
         threadDelay 10000000 --10s
         loop in loop
 
-homePage :: (IO [String]) -> ServerPart String
-homePage f = ok $ do 
-    nodes <- f
-    --"known nodes: " ++ intercalate "," ["a"]
-    "foo"
+homePage :: IORef [String] -> ServerPart Response
+homePage ref = do
+    nodes <- liftIO $ readIORef ref
+    ok . toResponse $ "known nodes: " ++ intercalate "," nodes
 
 myServer :: IORef [String] -> IO ()
 myServer ref = simpleHTTP nullConf $ msum
-    [ homePage ((\r -> readIORef r) ref)]
+    [ homePage ref ]
 
 worker :: Chan String -> IORef [String] -> IO ()
 worker ch ref = forever (readChan ch >>= \value -> modifyIORef ref (value:))
@@ -57,6 +57,5 @@ main = do
     send nodes
 
 -- TODO The IO Ref needs to be a set
--- TODO The IO Ref needs to be read and displayed in the web page output
 -- TODO Functions in a another module to handle state
 -- TODO Maybe each node should respond with the nodes it knows about as well as its own ip

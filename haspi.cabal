@@ -21,6 +21,7 @@ executable haspi
   -- main-is:             
   -- other-modules:       
   build-depends:       base >=4.6.0
+                       , mtl >=2.2.1
                        , network
                        , network-multicast ==0.2.0
                        , happstack-server ==7.4.6.4
