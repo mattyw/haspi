@@ -5,6 +5,7 @@ import Data.List (intercalate)
 import Network.Multicast
 import Control.Concurrent
 import Data.IORef
+import qualified Data.Set as Set
 import Control.Monad
 import Control.Monad.Trans
 import Control.Concurrent.Chan
@@ -24,7 +25,7 @@ recv ch = Sock.withSocketsDo $ do
         writeChan ch $ show addr
         loop in loop
 
-send :: IORef [String] -> IO ()
+send :: IORef (Set.Set String) -> IO ()
 send ref = Sock.withSocketsDo $ do
     (sock, addr) <- multicastSender "224.0.0.1" 9999
     let loop = do
@@ -34,19 +35,19 @@ send ref = Sock.withSocketsDo $ do
         threadDelay 10000000 --10s
         loop in loop
 
-homePage :: IORef [String] -> ServerPart Response
+homePage :: IORef (Set.Set String) -> ServerPart Response
 homePage ref = do
     nodes <- liftIO $ readIORef ref
-    ok . toResponse $ "known nodes: " ++ intercalate "," nodes
+    ok . toResponse $ "known nodes: " ++ intercalate "," (Set.elems nodes)
 
-myServer :: IORef [String] -> IO ()
+myServer :: IORef (Set.Set String) -> IO ()
 myServer ref = simpleHTTP nullConf $ msum
     [ homePage ref ]
 
-worker :: Chan String -> IORef [String] -> IO ()
-worker ch ref = forever (readChan ch >>= \value -> modifyIORef ref (value:))
+worker :: Chan String -> IORef (Set.Set String) -> IO ()
+worker ch ref = forever (readChan ch >>= \value -> modifyIORef ref (Set.insert value))
 
-newRef = newIORef ([] :: [String])
+newRef = newIORef Set.empty
 
 main = do
     nodes <- newRef
@@ -56,6 +57,5 @@ main = do
     forkIO $ recv ch
     send nodes
 
--- TODO The IO Ref needs to be a set
 -- TODO Functions in a another module to handle state
--- TODO Maybe each node should respond with the nodes it knows about as well as its own ip
+-- TODO Maybe each node should respond with the nodes it knows about as well as its own ip (Set)
